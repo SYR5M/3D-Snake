@@ -4,11 +4,6 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 
 // Extend Window interface for diagnostic tracking
-declare global {
-  interface Window {
-    __renderCalls?: number;
-  }
-}
 import {
   Difficulty,
   DIFFICULTY_CONFIGS,
@@ -18,6 +13,7 @@ import {
   PowerUpState,
   RunStats,
   Objective,
+  OBJECTIVES,
   ArenaId,
   SnakeTheme,
   GemShape,
@@ -36,6 +32,19 @@ import {
 import { createSoftParticleTexture, createGlowTexture } from './Textures';
 import * as Audio from './Audio';
 import { Minimap } from './Minimap';
+import {
+  getArenaRadius,
+  isWallCollision,
+  isSelfCollisionSwept,
+  isObstacleCollision,
+  isFoodCollected,
+  isValidFoodSpawn,
+  randomPointInDisc,
+  rollFoodType,
+  computeSpeedRamp,
+  comboMultiplier,
+  computeEatPoints,
+} from './rules';
 
 // Color themes
 const THEMES: Record<SnakeTheme, { head: number; mid: number; tail: number }> = {
@@ -95,6 +104,8 @@ interface Obstacle {
   spawnScale: number;
 }
 
+// Removed dead SpatialHash class (never used — see AUDIT_REPORT.md).
+
 interface SegmentPool {
   mesh: THREE.Mesh;
   material: THREE.MeshStandardMaterial;
@@ -103,47 +114,6 @@ interface SegmentPool {
   flashAnim: number;
   wobblePhase: number;
   breathPhase: number;
-}
-
-class SpatialHash {
-  private cells: Map<string, number[]> = new Map();
-  private cellSize: number;
-
-  constructor(cellSize: number = 2) {
-    this.cellSize = cellSize;
-  }
-
-  clear() {
-    this.cells.clear();
-  }
-
-  private getKey(x: number, z: number): string {
-    const cx = Math.floor(x / this.cellSize);
-    const cz = Math.floor(z / this.cellSize);
-    return `${cx},${cz}`;
-  }
-
-  insert(index: number, x: number, z: number) {
-    const key = this.getKey(x, z);
-    if (!this.cells.has(key)) this.cells.set(key, []);
-    this.cells.get(key)!.push(index);
-  }
-
-  query(x: number, z: number, radius: number): number[] {
-    const result: number[] = [];
-    const minCx = Math.floor((x - radius) / this.cellSize);
-    const maxCx = Math.floor((x + radius) / this.cellSize);
-    const minCz = Math.floor((z - radius) / this.cellSize);
-    const maxCz = Math.floor((z + radius) / this.cellSize);
-
-    for (let cx = minCx; cx <= maxCx; cx++) {
-      for (let cz = minCz; cz <= maxCz; cz++) {
-        const cell = this.cells.get(`${cx},${cz}`);
-        if (cell) result.push(...cell);
-      }
-    }
-    return result;
-  }
 }
 
 export interface GameCallbacks {
@@ -189,7 +159,6 @@ export class SnakeGameEngine {
     maxCombo: 0, survivalTime: 0, powerUpsUsed: 0,
   };
   private runStartTime: number = 0;
-  private gracePeriod: number = 0; // Self-collision grace period
 
   private comboCount: number = 0;
   private comboTimer: number = 0;
@@ -274,8 +243,6 @@ export class SnakeGameEngine {
   private eatParticleLifetimes!: Float32Array;
   private eatParticleActive: boolean = false;
   private eatParticleTimer: number = 0;
-
-  private spatialHash: SpatialHash = new SpatialHash(2);
 
   private vignetteFlash: number = 0;
   private cameraFov: number = 75;
@@ -858,15 +825,22 @@ export class SnakeGameEngine {
     });
     const mesh = new THREE.Mesh(geo, mat);
 
-    let x: number, z: number;
-    let attempts = 0;
-    do {
+    // FIX (critical): the previous do/while loop accepted the last candidate
+    // even when it was still near the snake, spawning lethal obstacles on top
+    // of the player. Now we only place an obstacle when a valid position was
+    // actually found; otherwise the obstacle is skipped entirely.
+    let x = 0, z = 0;
+    let placed = false;
+    for (let attempt = 0; attempt < 20; attempt++) {
       const angle = Math.random() * Math.PI * 2;
       const dist = Math.random() * (this.arenaRadius - 5) + 4;
-      x = Math.cos(angle) * dist;
-      z = Math.sin(angle) * dist;
-      attempts++;
-    } while (attempts < 20 && this.isPositionNearSnake(x, z, 4));
+      const px = Math.cos(angle) * dist;
+      const pz = Math.sin(angle) * dist;
+      if (!this.isPositionNearSnake(px, pz, 4)) {
+        x = px; z = pz; placed = true; break;
+      }
+    }
+    if (!placed) { geo.dispose(); mat.dispose(); return; }
 
     const pos = new THREE.Vector3(x, 0.5, z);
     mesh.position.copy(pos);
@@ -1246,7 +1220,6 @@ export class SnakeGameEngine {
     this.callbacks.onStateChange('playing');
     this.targetSpeed = DIFFICULTY_CONFIGS[this.difficulty].speed;
     this.runStartTime = this.clock.getElapsedTime();
-    this.gracePeriod = 0.5; // 0.5s grace period
   }
 
   pause() {
@@ -1273,7 +1246,6 @@ export class SnakeGameEngine {
     this.callbacks.onStateChange('playing');
     this.targetSpeed = DIFFICULTY_CONFIGS[this.difficulty].speed;
     this.runStartTime = this.clock.getElapsedTime();
-    this.gracePeriod = 0.5;
   }
 
   goToMenu() {
@@ -1322,7 +1294,9 @@ export class SnakeGameEngine {
       foodsEaten: 0, goldenEaten: 0, maxLength: 5,
       maxCombo: 0, survivalTime: 0, powerUpsUsed: 0,
     };
-    this.currentObjective = null;
+    // FIX: objectives were defined but never assigned, so the challenge UI could
+    // never appear. Pick a random objective at run start.
+    this.currentObjective = OBJECTIVES[Math.floor(Math.random() * OBJECTIVES.length)];
     this.objectiveCompleted = false;
 
     this.headPosition.set(0, 0.4, 0);
@@ -2115,12 +2089,6 @@ export class SnakeGameEngine {
     this.animationId = requestAnimationFrame(this.animate);
     if (document.hidden) { this.clock.getDelta(); return; }
     
-    // Diagnostic: Track render calls
-    if (!window.__renderCalls) window.__renderCalls = 0;
-    window.__renderCalls++;
-    if (window.__renderCalls <= 5) {
-
-    }
     
     if (!this.renderer || !this.scene || !this.camera || !this.snakeHead || !this.headPosition) {
       console.error('[DIAGNOSTIC] Missing required objects:', {
