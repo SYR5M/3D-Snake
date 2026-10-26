@@ -1,0 +1,209 @@
+@import "tailwindcss";
+
+@theme {
+  --color-warmWhite: #f5f0ff;
+  --color-mint: #7fffe0;
+  --color-lavender: #b48cff;
+  --color-peachGold: #ffd479;
+  --color-rose-300: #ffb3c1;
+  --color-cyan-300: #7fd6ff;
+  --font-nunito: 'Nunito', system-ui, sans-serif;
+  --font-quicksand: 'Quicksand', system-ui, sans-serif;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #1a1033;
+  font-family: 'Nunito', system-ui, -apple-system, sans-serif;
+  color: #f5f0ff;
+}
+
+html, body {
+  overscroll-behavior: none;
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+div > canvas:not(.minimap-canvas) {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  outline: none;
+  position: relative;
+  z-index: 0;
+}
+
+/* Minimap styles */
+.minimap-canvas {
+  border-radius: 50%;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  transition: transform 0.2s ease-out, opacity 0.3s ease-out;
+}
+
+.minimap-canvas:hover {
+  transform: scale(1.04);
+}
+
+.font-nunito {
+  font-family: 'Nunito', system-ui, sans-serif;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Glass panels */
+.glass-panel {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(180, 140, 255, 0.2);
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(26, 16, 51, 0.3);
+}
+
+.glass-panel-glow {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(180, 140, 255, 0.3);
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(26, 16, 51, 0.3), 0 0 20px rgba(180, 140, 255, 0.1);
+}
+
+.glass-panel-large {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  background: rgba(42, 26, 74, 0.7);
+  border: 1px solid rgba(180, 140, 255, 0.25);
+  border-radius: 28px;
+  box-shadow: 0 20px 60px rgba(26, 16, 51, 0.5), 0 0 40px rgba(180, 140, 255, 0.05);
+}
+
+.glass-pill {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(180, 140, 255, 0.15);
+  border-radius: 999px;
+}
+
+/* Text effects */
+.text-gradient-title {
+  background: linear-gradient(135deg, #7fffe0 0%, #b48cff 50%, #ff9ee8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 0 20px rgba(180, 140, 255, 0.3));
+}
+
+.drop-shadow-glow {
+  filter: drop-shadow(0 0 8px currentColor);
+}
+
+/* Keyboard hints */
+.kbd {
+  display: inline-block;
+  padding: 2px 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(180, 140, 255, 0.2);
+  border-radius: 6px;
+  font-family: 'Nunito', monospace;
+  font-size: 0.7rem;
+  color: #f5f0ff;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%, 100% { box-shadow: 0 0 20px rgba(127, 255, 224, 0.2); }
+  50% { box-shadow: 0 0 30px rgba(127, 255, 224, 0.4); }
+}
+
+.animate-breathe {
+  animation: breathe 3s ease-in-out infinite;
+}
+
+@keyframes scorePopup {
+  0% { opacity: 1; transform: translate(-50%, 0) scale(0.5); }
+  20% { opacity: 1; transform: translate(-50%, -10px) scale(1.2); }
+  100% { opacity: 0; transform: translate(-50%, -60px) scale(0.8); }
+}
+
+.animate-scorePopup {
+  animation: scorePopup 1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Button interactions */
+button {
+  transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+button:active {
+  transform: scale(0.97) !important;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(180, 140, 255, 0.3);
+  border-radius: 2px;
+}
+
+/* Prevent context menu on mobile */
+body {
+  -webkit-touch-callout: none;
+}
+
+/* UI stays above the WebGL canvas, including menus and touch controls. */
+.game-shell > :not(.game-render-layer) { z-index: 2; }
+.game-shell > [role="alert"], .game-shell > .z-50 { z-index: 50; }
+.game-render-layer { overflow: hidden; touch-action: none; }
+.game-render-layer canvas { display: block; touch-action: none; }
+.game-menu-panel { touch-action: pan-y; scrollbar-gutter: stable; }
+.game-shell button { position: relative; cursor: pointer; touch-action: manipulation; }
+.game-shell button:disabled { cursor: not-allowed; }
+.game-shell button:focus-visible { outline: 2px solid #7fffe0; outline-offset: 3px; }
+@media (max-height: 680px) {
+  .game-menu-panel { padding-top: 12px; padding-bottom: 12px; }
+  .game-menu-panel .glass-panel-large { margin-top: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-float, .animate-breathe, .animate-fadeIn, .animate-scorePopup { animation: none !important; }
+  .game-shell *, .game-shell *::before, .game-shell *::after { transition-duration: 0.01ms !important; }
+}
